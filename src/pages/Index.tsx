@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus, TrendingUp, Wallet, Calendar, DollarSign } from "lucide-react";
+import { Trash2, Plus, TrendingUp, Wallet, Calendar, DollarSign, Download, Share2, Filter, ArrowUpDown, Edit2, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface Expense {
   id: string;
@@ -19,7 +21,11 @@ interface Expense {
   created_at: string;
 }
 
-const MEMBERS = {
+type MemberShares = {
+  [key: string]: number;
+};
+
+const DEFAULT_MEMBERS: MemberShares = {
   "Aaqib": 0.30,
   "Nawab": 0.30,
   "Tufail Alam Sir": 0.40,
@@ -32,6 +38,12 @@ const Index = () => {
   const [amount, setAmount] = useState("");
   const [paidBy, setPaidBy] = useState<string>("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedExpenses, setSelectedExpenses] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
+  const [filterByUser, setFilterByUser] = useState<string>('all');
+  const [memberShares, setMemberShares] = useState<MemberShares>(DEFAULT_MEMBERS);
+  const [editingShares, setEditingShares] = useState(false);
+  const [tempShares, setTempShares] = useState<MemberShares>(DEFAULT_MEMBERS);
 
   useEffect(() => {
     fetchExpenses();
@@ -55,11 +67,11 @@ const Index = () => {
   };
 
   const calculateBalances = () => {
-    const balances: Record<string, number> = {
-      "Aaqib": 0,
-      "Nawab": 0,
-      "Tufail Alam Sir": 0,
-    };
+    const balances: Record<string, number> = {};
+    
+    Object.keys(memberShares).forEach(member => {
+      balances[member] = 0;
+    });
 
     expenses.forEach(expense => {
       const totalAmount = parseFloat(expense.amount.toString());
@@ -68,12 +80,118 @@ const Index = () => {
       balances[expense.paid_by] += totalAmount;
       
       // Everyone pays their share
-      Object.entries(MEMBERS).forEach(([member, percentage]) => {
+      Object.entries(memberShares).forEach(([member, percentage]) => {
         balances[member] -= totalAmount * percentage;
       });
     });
 
     return balances;
+  };
+
+  const getSortedExpenses = () => {
+    let filtered = [...expenses];
+    
+    // Filter by user
+    if (filterByUser !== 'all') {
+      filtered = filtered.filter(exp => exp.paid_by === filterByUser);
+    }
+    
+    // Sort
+    if (sortBy === 'date') {
+      filtered.sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
+    } else {
+      filtered.sort((a, b) => parseFloat(b.amount.toString()) - parseFloat(a.amount.toString()));
+    }
+    
+    return filtered;
+  };
+
+  const toggleExpenseSelection = (id: string) => {
+    const newSelected = new Set(selectedExpenses);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedExpenses(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    const sortedExpenses = getSortedExpenses();
+    if (selectedExpenses.size === sortedExpenses.length) {
+      setSelectedExpenses(new Set());
+    } else {
+      setSelectedExpenses(new Set(sortedExpenses.map(exp => exp.id)));
+    }
+  };
+
+  const exportToCSV = () => {
+    const selected = expenses.filter(exp => selectedExpenses.has(exp.id));
+    if (selected.length === 0) {
+      toast.error("Please select expenses to export");
+      return;
+    }
+
+    const headers = ['Date', 'Description', 'Amount (₹)', 'Paid By'];
+    const rows = selected.map(exp => [
+      format(new Date(exp.expense_date), 'dd/MM/yyyy'),
+      exp.description,
+      parseFloat(exp.amount.toString()).toFixed(2),
+      exp.paid_by
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expenses_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast.success("CSV exported successfully!");
+  };
+
+  const exportToWhatsApp = () => {
+    const selected = expenses.filter(exp => selectedExpenses.has(exp.id));
+    if (selected.length === 0) {
+      toast.error("Please select expenses to export");
+      return;
+    }
+
+    let message = `*4Achievers Saket - Expense Report*\n\n`;
+    
+    selected.forEach(exp => {
+      message += `📅 ${format(new Date(exp.expense_date), 'dd MMM yyyy')}\n`;
+      message += `💰 ₹${parseFloat(exp.amount.toString()).toFixed(2)} - ${exp.description}\n`;
+      message += `👤 Paid by: ${exp.paid_by}\n\n`;
+    });
+
+    const total = selected.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
+    message += `*Total: ₹${total.toFixed(2)}*`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  };
+
+  const saveShares = () => {
+    const total = Object.values(tempShares).reduce((sum, val) => sum + val, 0);
+    if (Math.abs(total - 1) > 0.001) {
+      toast.error("Shares must add up to 100%");
+      return;
+    }
+    setMemberShares(tempShares);
+    setEditingShares(false);
+    toast.success("Shares updated successfully!");
+  };
+
+  const cancelEditShares = () => {
+    setTempShares(memberShares);
+    setEditingShares(false);
   };
 
   const addExpense = async () => {
@@ -154,7 +272,62 @@ const Index = () => {
 
         {/* Balances Dashboard */}
         <div className="mb-6 sm:mb-8">
-          <h2 className="text-lg sm:text-xl font-semibold mb-4 px-1">Current Balances</h2>
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h2 className="text-lg sm:text-xl font-semibold">Current Balances</h2>
+            <Dialog open={editingShares} onOpenChange={setEditingShares}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" onClick={() => setTempShares(memberShares)}>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Edit Shares
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Member Shares</DialogTitle>
+                  <DialogDescription>
+                    Adjust the percentage share for each member. Total must equal 100%.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {Object.entries(tempShares).map(([member, share]) => (
+                    <div key={member} className="space-y-2">
+                      <Label>{member}</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={(share * 100).toFixed(0)}
+                          onChange={(e) => setTempShares({
+                            ...tempShares,
+                            [member]: parseFloat(e.target.value) / 100
+                          })}
+                          className="flex-1"
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-semibold">
+                      Total: {(Object.values(tempShares).reduce((sum, val) => sum + val, 0) * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={cancelEditShares}>
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button onClick={saveShares}>
+                    <Check className="w-4 h-4 mr-2" />
+                    Save
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {[1, 2, 3].map((i) => (
@@ -183,7 +356,7 @@ const Index = () => {
                       <div>
                         <CardTitle className="text-base sm:text-lg font-semibold">{member}</CardTitle>
                         <CardDescription className="text-xs sm:text-sm mt-1">
-                          {MEMBERS[member as keyof typeof MEMBERS] * 100}% share
+                          {(memberShares[member] * 100).toFixed(0)}% share
                         </CardDescription>
                       </div>
                       <div className={`p-2 rounded-full ${balance > 0 ? 'bg-success/10' : balance < 0 ? 'bg-destructive/10' : 'bg-muted'}`}>
@@ -258,7 +431,7 @@ const Index = () => {
                     <SelectValue placeholder="Select member" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.keys(MEMBERS).map((member) => (
+                    {Object.keys(memberShares).map((member) => (
                       <SelectItem key={member} value={member} className="text-base">
                         {member}
                       </SelectItem>
@@ -295,7 +468,7 @@ const Index = () => {
           {/* Expense List */}
           <Card className="border-2 lg:col-span-3 shadow-lg">
             <CardHeader className="border-b bg-muted/30">
-              <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                   <div className="p-1.5 rounded-lg bg-success/10">
                     <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
@@ -305,6 +478,56 @@ const Index = () => {
                 <CardDescription className="text-sm sm:text-base font-semibold text-primary">
                   Total: ₹{expenses.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0).toFixed(2)}
                 </CardDescription>
+              </div>
+              
+              {/* Filters and Actions */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <Select value={filterByUser} onValueChange={setFilterByUser}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Members</SelectItem>
+                    {Object.keys(memberShares).map((member) => (
+                      <SelectItem key={member} value={member}>{member}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={sortBy} onValueChange={(val) => setSortBy(val as 'date' | 'amount')}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Sort by Date</SelectItem>
+                    <SelectItem value="amount">Sort by Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {selectedExpenses.size > 0 && (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={exportToCSV}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      CSV
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={exportToWhatsApp}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      WhatsApp
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="pt-4">
@@ -327,14 +550,31 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                  {expenses.map((expense, index) => (
+                  {getSortedExpenses().length > 0 && (
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Checkbox
+                        checked={selectedExpenses.size === getSortedExpenses().length}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {selectedExpenses.size > 0 ? `${selectedExpenses.size} selected` : 'Select all'}
+                      </span>
+                    </div>
+                  )}
+                  {getSortedExpenses().map((expense, index) => (
                     <div
                       key={expense.id}
                       className="flex items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:shadow-lg hover:border-primary/20 transition-all group animate-fade-in"
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
-                      <div className="flex-1 min-w-0 mr-2">
-                        <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 mr-2">
+                        <Checkbox
+                          checked={selectedExpenses.has(expense.id)}
+                          onCheckedChange={() => toggleExpenseSelection(expense.id)}
+                          className="flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 sm:gap-3">
                           <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0 mt-0.5 sm:mt-0">
                             <DollarSign className="w-4 h-4 text-primary" />
                           </div>
@@ -354,6 +594,7 @@ const Index = () => {
                               </span>
                             </div>
                           </div>
+                        </div>
                         </div>
                       </div>
                       <Button
