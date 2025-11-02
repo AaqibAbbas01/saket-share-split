@@ -39,7 +39,7 @@ const Index = () => {
   const [paidBy, setPaidBy] = useState<string>("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedExpenses, setSelectedExpenses] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'recent'>('recent');
   const [filterByUser, setFilterByUser] = useState<string>('all');
   const [memberShares, setMemberShares] = useState<MemberShares>(DEFAULT_MEMBERS);
   const [editingShares, setEditingShares] = useState(false);
@@ -99,8 +99,10 @@ const Index = () => {
     // Sort
     if (sortBy === 'date') {
       filtered.sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
-    } else {
+    } else if (sortBy === 'amount') {
       filtered.sort((a, b) => parseFloat(b.amount.toString()) - parseFloat(a.amount.toString()));
+    } else if (sortBy === 'recent') {
+      filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
     
     return filtered;
@@ -244,23 +246,23 @@ const Index = () => {
   const balances = calculateBalances();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 pb-8">
       {/* Professional Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-        <div className="container mx-auto px-4 py-4 max-w-6xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Wallet className="w-6 h-6 text-primary" />
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 max-w-7xl">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10">
+                <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">4Achievers Saket</h1>
-                <p className="text-xs text-muted-foreground">Expense Manager</p>
+                <h1 className="text-base sm:text-xl font-bold text-foreground">4Achievers Saket</h1>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Expense Manager</p>
               </div>
             </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-foreground">Total Expenses</p>
-              <p className="text-lg font-bold text-primary">
+            <div className="text-right">
+              <p className="text-[10px] sm:text-sm font-semibold text-foreground">Total Expenses</p>
+              <p className="text-sm sm:text-lg font-bold text-primary">
                 ₹{expenses.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0).toFixed(2)}
               </p>
             </div>
@@ -268,12 +270,12 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl space-y-4 sm:space-y-6">
 
         {/* Balances Dashboard */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h2 className="text-lg sm:text-xl font-semibold">Current Balances</h2>
+        <section>
+          <div className="flex items-center justify-between mb-3 sm:mb-4 px-1">
+            <h2 className="text-base sm:text-lg font-bold text-foreground">💰 Current Balances</h2>
             <Dialog open={editingShares} onOpenChange={setEditingShares}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" onClick={() => setTempShares(memberShares)}>
@@ -329,46 +331,46 @@ const Index = () => {
             </Dialog>
           </div>
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               {[1, 2, 3].map((i) => (
-                <Card key={i} className="border-2">
-                  <CardHeader className="pb-3">
-                    <Skeleton className="h-5 w-32" />
-                    <Skeleton className="h-4 w-20 mt-2" />
+                <Card key={i} className="border">
+                  <CardHeader className="pb-2 sm:pb-3">
+                    <Skeleton className="h-4 sm:h-5 w-28 sm:w-32" />
+                    <Skeleton className="h-3 sm:h-4 w-16 sm:w-20 mt-2" />
                   </CardHeader>
                   <CardContent>
-                    <Skeleton className="h-8 w-24" />
+                    <Skeleton className="h-6 sm:h-8 w-20 sm:w-24" />
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-slide-up">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 animate-slide-up">
               {Object.entries(balances).map(([member, balance], index) => (
                 <Card 
                   key={member} 
-                  className="border-2 transition-all hover:shadow-xl hover:-translate-y-1 cursor-default overflow-hidden"
+                  className="border transition-all hover:shadow-lg hover:border-primary/30 cursor-default overflow-hidden"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <div className={`h-1 w-full ${balance > 0 ? 'bg-success' : balance < 0 ? 'bg-destructive' : 'bg-muted'}`} />
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base sm:text-lg font-semibold">{member}</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm mt-1">
+                  <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-4 pt-3 sm:pt-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-sm sm:text-base font-bold truncate">{member}</CardTitle>
+                        <CardDescription className="text-[10px] sm:text-xs mt-0.5 sm:mt-1">
                           {(memberShares[member] * 100).toFixed(0)}% share
                         </CardDescription>
                       </div>
-                      <div className={`p-2 rounded-full ${balance > 0 ? 'bg-success/10' : balance < 0 ? 'bg-destructive/10' : 'bg-muted'}`}>
-                        <Wallet className={`w-4 h-4 ${balance > 0 ? 'text-success' : balance < 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                      <div className={`p-1.5 sm:p-2 rounded-full flex-shrink-0 ${balance > 0 ? 'bg-success/10' : balance < 0 ? 'bg-destructive/10' : 'bg-muted'}`}>
+                        <Wallet className={`w-3 h-3 sm:w-4 sm:h-4 ${balance > 0 ? 'text-success' : balance < 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl sm:text-3xl font-bold ${balance > 0 ? 'text-success' : balance < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+                    <div className={`text-xl sm:text-2xl font-bold ${balance > 0 ? 'text-success' : balance < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                       ₹{Math.abs(balance).toFixed(2)}
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 font-medium">
                       {balance > 0 ? '✓ Gets back' : balance < 0 ? '⚠ Owes' : '✓ Settled'}
                     </p>
                   </CardContent>
@@ -376,38 +378,38 @@ const Index = () => {
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4">
           {/* Add Expense Form */}
-          <Card className="border-2 lg:col-span-2 shadow-lg">
-            <CardHeader className="border-b bg-muted/30">
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+          <Card className="border lg:col-span-2 shadow-sm">
+            <CardHeader className="border-b bg-muted/20 px-3 sm:px-4 py-3 sm:py-4">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <div className="p-1 sm:p-1.5 rounded-lg bg-primary/10">
+                  <Plus className="w-4 h-4 text-primary" />
                 </div>
                 Add Expense
               </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Track a new expense for the group</CardDescription>
+              <CardDescription className="text-[10px] sm:text-xs">Track a new expense for the group</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm font-semibold flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
+            <CardContent className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 px-3 sm:px-4">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="description" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                  <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                   Description
                 </Label>
                 <Input
                   id="description"
-                  placeholder="e.g., Office supplies, Lunch, Transport"
+                  placeholder="e.g., Office supplies, Lunch"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="h-11 text-base"
+                  className="h-10 sm:h-11 text-sm sm:text-base"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="amount" className="text-sm font-semibold flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-success" />
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="amount" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                  <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-success" />
                   Amount (₹)
                 </Label>
                 <Input
@@ -417,22 +419,22 @@ const Index = () => {
                   step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="h-11 text-base"
+                  className="h-10 sm:h-11 text-sm sm:text-base"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="paidBy" className="text-sm font-semibold flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-primary" />
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="paidBy" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                  <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                   Paid By
                 </Label>
                 <Select value={paidBy} onValueChange={setPaidBy}>
-                  <SelectTrigger id="paidBy" className="h-11 text-base">
+                  <SelectTrigger id="paidBy" className="h-10 sm:h-11 text-sm sm:text-base">
                     <SelectValue placeholder="Select member" />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.keys(memberShares).map((member) => (
-                      <SelectItem key={member} value={member} className="text-base">
+                      <SelectItem key={member} value={member} className="text-sm sm:text-base">
                         {member}
                       </SelectItem>
                     ))}
@@ -440,9 +442,9 @@ const Index = () => {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="date" className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-accent-foreground" />
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="date" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-accent-foreground" />
                   Date
                 </Label>
                 <Input
@@ -450,113 +452,115 @@ const Index = () => {
                   type="date"
                   value={expenseDate}
                   onChange={(e) => setExpenseDate(e.target.value)}
-                  className="h-11 text-base"
+                  className="h-10 sm:h-11 text-sm sm:text-base"
                 />
               </div>
 
               <Button 
                 onClick={addExpense} 
-                className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all mt-6" 
+                className="w-full h-10 sm:h-12 text-sm sm:text-base font-semibold shadow hover:shadow-lg transition-all mt-4 sm:mt-6" 
                 size="lg"
               >
-                <Plus className="w-5 h-5 mr-2" />
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Add Expense
               </Button>
             </CardContent>
           </Card>
 
           {/* Expense List */}
-          <Card className="border-2 lg:col-span-3 shadow-lg">
-            <CardHeader className="border-b bg-muted/30">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <div className="p-1.5 rounded-lg bg-success/10">
-                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+          <Card className="border lg:col-span-3 shadow-sm">
+            <CardHeader className="border-b bg-muted/20 px-3 sm:px-4 py-3 sm:py-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2 sm:mb-3">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <div className="p-1 sm:p-1.5 rounded-lg bg-success/10">
+                    <TrendingUp className="w-4 h-4 text-success" />
                   </div>
                   Recent Expenses
                 </CardTitle>
-                <CardDescription className="text-sm sm:text-base font-semibold text-primary">
-                  Total: ₹{expenses.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0).toFixed(2)}
+                <CardDescription className="text-xs sm:text-sm font-bold text-primary">
+                  ₹{expenses.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0).toFixed(2)}
                 </CardDescription>
               </div>
               
               {/* Filters and Actions */}
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={filterByUser} onValueChange={setFilterByUser}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <Filter className="w-4 h-4 mr-2" />
+                  <SelectTrigger className="w-full sm:w-[160px] h-9 text-xs sm:text-sm">
+                    <Filter className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Members</SelectItem>
+                    <SelectItem value="all" className="text-xs sm:text-sm">All Members</SelectItem>
                     {Object.keys(memberShares).map((member) => (
-                      <SelectItem key={member} value={member}>{member}</SelectItem>
+                      <SelectItem key={member} value={member} className="text-xs sm:text-sm">{member}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 
-                <Select value={sortBy} onValueChange={(val) => setSortBy(val as 'date' | 'amount')}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                <Select value={sortBy} onValueChange={(val) => setSortBy(val as 'date' | 'amount' | 'recent')}>
+                  <SelectTrigger className="w-full sm:w-[160px] h-9 text-xs sm:text-sm">
+                    <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="date">Sort by Date</SelectItem>
-                    <SelectItem value="amount">Sort by Amount</SelectItem>
+                    <SelectItem value="recent" className="text-xs sm:text-sm">Recently Added</SelectItem>
+                    <SelectItem value="date" className="text-xs sm:text-sm">Sort by Date</SelectItem>
+                    <SelectItem value="amount" className="text-xs sm:text-sm">Sort by Amount</SelectItem>
                   </SelectContent>
                 </Select>
 
                 {selectedExpenses.size > 0 && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={exportToCSV}
-                      className="flex-1 sm:flex-none"
+                      className="flex-1 sm:flex-none h-9 text-xs sm:text-sm"
                     >
-                      <Download className="w-4 h-4 mr-2" />
+                      <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                       CSV
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={exportToWhatsApp}
-                      className="flex-1 sm:flex-none"
+                      className="flex-1 sm:flex-none h-9 text-xs sm:text-sm"
                     >
-                      <Share2 className="w-4 h-4 mr-2" />
+                      <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                       WhatsApp
                     </Button>
                   </div>
                 )}
               </div>
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent className="pt-3 sm:pt-4 px-3 sm:px-4">
               {loading ? (
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="p-4 rounded-lg border bg-card">
-                      <Skeleton className="h-5 w-32 mb-2" />
-                      <Skeleton className="h-4 w-48" />
+                    <div key={i} className="p-3 sm:p-4 rounded-lg border bg-card">
+                      <Skeleton className="h-4 sm:h-5 w-28 sm:w-32 mb-2" />
+                      <Skeleton className="h-3 sm:h-4 w-40 sm:w-48" />
                     </div>
                   ))}
                 </div>
               ) : expenses.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="p-4 rounded-full bg-muted w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                    <Wallet className="w-8 h-8 text-muted-foreground" />
+                <div className="text-center py-8 sm:py-12">
+                  <div className="p-3 sm:p-4 rounded-full bg-muted w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
+                    <Wallet className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
                   </div>
-                  <p className="text-base sm:text-lg font-medium text-muted-foreground">No expenses yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">Add your first expense to get started</p>
+                  <p className="text-sm sm:text-base font-medium text-muted-foreground">No expenses yet</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">Add your first expense to get started</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                <div className="space-y-2 sm:space-y-3 max-h-[500px] sm:max-h-[600px] overflow-y-auto pr-1">
                   {getSortedExpenses().length > 0 && (
-                    <div className="flex items-center gap-2 pb-2 border-b">
+                    <div className="flex items-center gap-2 pb-2 border-b sticky top-0 bg-background z-10">
                       <Checkbox
                         checked={selectedExpenses.size === getSortedExpenses().length}
                         onCheckedChange={toggleSelectAll}
+                        className="h-4 w-4"
                       />
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-xs sm:text-sm text-muted-foreground">
                         {selectedExpenses.size > 0 ? `${selectedExpenses.size} selected` : 'Select all'}
                       </span>
                     </div>
@@ -564,46 +568,46 @@ const Index = () => {
                   {getSortedExpenses().map((expense, index) => (
                     <div
                       key={expense.id}
-                      className="flex items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:shadow-lg hover:border-primary/20 transition-all group animate-fade-in"
+                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg border bg-card hover:shadow-md hover:border-primary/30 transition-all group animate-fade-in"
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0 mr-2">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
                         <Checkbox
                           checked={selectedExpenses.has(expense.id)}
                           onCheckedChange={() => toggleExpenseSelection(expense.id)}
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 h-4 w-4"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 sm:gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0 mt-0.5 sm:mt-0">
-                            <DollarSign className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground text-sm sm:text-base break-words">{expense.description}</h3>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1.5 text-xs sm:text-sm text-muted-foreground">
-                              <span className="font-semibold text-primary">₹{parseFloat(expense.amount.toString()).toFixed(2)}</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span className="flex items-center gap-1">
-                                <Wallet className="w-3 h-3" />
-                                {expense.paid_by}
-                              </span>
-                              <span className="hidden sm:inline">•</span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {format(new Date(expense.expense_date), 'MMM dd, yyyy')}
-                              </span>
+                          <div className="flex items-start gap-2">
+                            <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                              <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground text-xs sm:text-sm break-words leading-tight">{expense.description}</h3>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+                                <span className="font-bold text-primary">₹{parseFloat(expense.amount.toString()).toFixed(2)}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="flex items-center gap-1">
+                                  <Wallet className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                  {expense.paid_by}
+                                </span>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                  {format(new Date(expense.expense_date), 'MMM dd, yyyy')}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
                         </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => deleteExpense(expense.id)}
-                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0 h-9 w-9 transition-all group-hover:opacity-100 sm:opacity-0"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </Button>
                     </div>
                   ))}
